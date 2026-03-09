@@ -1,0 +1,11 @@
+services:
+  api-site:
+    build: .
+    ports:
+      - "3020:3020"
+    env_file:
+      - .env
+    environment:
+      PORT: "3020"
+      HOST: "0.0.0.0"
+    restart: unless-stopped
