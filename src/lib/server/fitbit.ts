@@ -201,7 +201,10 @@ const initTokens = async () => {
 			refreshToken: tokens.refresh_token,
 			expiresAt: tokens.expires_at
 		};
-	})();
+	})().catch((error) => {
+		tokenInitPromise = null;
+		throw error;
+	});
 
 	return tokenInitPromise;
 };
@@ -645,42 +648,58 @@ export const getFitbitStats = async (): Promise<StatsPayload> => {
 		let stepsWeek: number | null = null;
 		let floors: number | null = null;
 		let steps24h: number | null = null;
+		let fetchErrorMessage: string | null = null;
+
+		const rememberError = (error: unknown) => {
+			if (tokenInvalid || fetchErrorMessage) return;
+			if (error instanceof Error && error.message) {
+				fetchErrorMessage = error.message;
+				return;
+			}
+			fetchErrorMessage = 'Unable to load Fitbit data.';
+		};
 
 		try {
 			try {
 				activity = await fetchActivity();
 			} catch (error) {
 				if (!tokenInvalid) console.error('Fitbit activity fetch error:', error);
+				rememberError(error);
 			}
 
 			try {
 				sleep = await fetchSleep();
 			} catch (error) {
 				if (!tokenInvalid) console.error('Fitbit sleep fetch error:', error);
+				rememberError(error);
 			}
 
 			try {
 				heartRate = await fetchHeartRate();
 			} catch (error) {
 				if (!tokenInvalid) console.error('Fitbit heart rate fetch error:', error);
+				rememberError(error);
 			}
 
 			try {
 				stepsWeek = await fetchStepsWeek();
 			} catch (error) {
 				if (!tokenInvalid) console.error('Fitbit weekly steps fetch error:', error);
+				rememberError(error);
 			}
 
 			try {
 				floors = await fetchFloors();
 			} catch (error) {
 				if (!tokenInvalid) console.error('Fitbit floors fetch error:', error);
+				rememberError(error);
 			}
 
 			try {
 				steps24h = await fetchStepsLast24h();
 			} catch (error) {
 				if (!tokenInvalid) console.error('Fitbit steps 24h fetch error:', error);
+				rememberError(error);
 			}
 
 			const authError = tokenInvalid;
@@ -702,13 +721,15 @@ export const getFitbitStats = async (): Promise<StatsPayload> => {
 				restingHeartRate: activity?.restingHeartRate ?? previous.restingHeartRate,
 				sleepDurationMinutes: sleep?.sleepDurationMinutes ?? previous.sleepDurationMinutes,
 				sleepScore: sleep?.sleepScore ?? previous.sleepScore,
-				heartRateBpm: heartRate ?? previous.heartRateBpm,
-				stepsWeek: stepsWeek ?? previous.stepsWeek,
-				floors: floors ?? previous.floors,
-				errorMessage: authError ? 'Please refresh the Fitbit token on the site.' : null,
-				lastUpdated: hasUpdate ? timestamp : previous.lastUpdated,
-				nextRefresh: timestamp + MIN_REFRESH_SECONDS
-			};
+					heartRateBpm: heartRate ?? previous.heartRateBpm,
+					stepsWeek: stepsWeek ?? previous.stepsWeek,
+					floors: floors ?? previous.floors,
+					errorMessage: authError
+						? 'Please refresh the Fitbit token on the site.'
+						: fetchErrorMessage,
+					lastUpdated: hasUpdate ? timestamp : previous.lastUpdated,
+					nextRefresh: timestamp + MIN_REFRESH_SECONDS
+				};
 
 			return cache;
 		} finally {
