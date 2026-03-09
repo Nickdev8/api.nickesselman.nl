@@ -9,7 +9,8 @@ Current endpoints:
 
 Docker:
 
-- `docker compose up -d --build` starts the service on port `3020`
+- `docker compose up -d --build` starts the service on port `3101`
+- Fitbit tokens persist in `./data/fitbit/tokens.json` via the `./data:/app/data` volume mount
 
 Environment:
 

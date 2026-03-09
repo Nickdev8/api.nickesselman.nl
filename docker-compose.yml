@@ -2,10 +2,13 @@ services:
   api-site:
     build: .
     ports:
-      - "3020:3020"
+      - "3101:3101"
     env_file:
       - .env
     environment:
-      PORT: "3020"
+      PORT: "3101"
       HOST: "0.0.0.0"
+      FITBIT_TOKEN_DIR: "/app/data/fitbit"
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped
