@@ -32,7 +32,10 @@ type StoredTokens = {
 	expires_at: number;
 };
 
-const MIN_REFRESH_SECONDS = 10 * 60;
+const SUCCESS_REFRESH_SECONDS = 10 * 60;
+const PARTIAL_ERROR_REFRESH_SECONDS = 5 * 60;
+const EMPTY_ERROR_REFRESH_SECONDS = 2 * 60;
+const AUTH_ERROR_REFRESH_SECONDS = 10 * 60;
 const FITBIT_API_BASE = 'https://api.fitbit.com';
 const EMPTY_STATS: StatsPayload = {
 	steps: null,
@@ -632,7 +635,7 @@ const fetchStepsLast24h = async (): Promise<number | null> => {
 export const getFitbitStats = async (): Promise<StatsPayload> => {
 	const now = nowSeconds();
 
-	if (cache.lastUpdated && cache.nextRefresh && now < cache.nextRefresh) {
+	if (cache.nextRefresh && now < cache.nextRefresh) {
 		return cache;
 	}
 
@@ -712,6 +715,13 @@ export const getFitbitStats = async (): Promise<StatsPayload> => {
 				steps24h !== null ||
 				(sleep &&
 					(sleep.sleepDurationMinutes !== null || sleep.sleepScore !== null));
+			const refreshSeconds = authError
+				? AUTH_ERROR_REFRESH_SECONDS
+				: fetchErrorMessage
+					? hasUpdate || previous.lastUpdated !== null
+						? PARTIAL_ERROR_REFRESH_SECONDS
+						: EMPTY_ERROR_REFRESH_SECONDS
+					: SUCCESS_REFRESH_SECONDS;
 
 			cache = {
 				steps: steps24h ?? activity?.steps ?? previous.steps,
@@ -721,15 +731,15 @@ export const getFitbitStats = async (): Promise<StatsPayload> => {
 				restingHeartRate: activity?.restingHeartRate ?? previous.restingHeartRate,
 				sleepDurationMinutes: sleep?.sleepDurationMinutes ?? previous.sleepDurationMinutes,
 				sleepScore: sleep?.sleepScore ?? previous.sleepScore,
-					heartRateBpm: heartRate ?? previous.heartRateBpm,
-					stepsWeek: stepsWeek ?? previous.stepsWeek,
-					floors: floors ?? previous.floors,
-					errorMessage: authError
-						? 'Please refresh the Fitbit token on the site.'
-						: fetchErrorMessage,
-					lastUpdated: hasUpdate ? timestamp : previous.lastUpdated,
-					nextRefresh: timestamp + MIN_REFRESH_SECONDS
-				};
+				heartRateBpm: heartRate ?? previous.heartRateBpm,
+				stepsWeek: stepsWeek ?? previous.stepsWeek,
+				floors: floors ?? previous.floors,
+				errorMessage: authError
+					? 'Please refresh the Fitbit token on the site.'
+					: fetchErrorMessage,
+				lastUpdated: hasUpdate ? timestamp : previous.lastUpdated,
+				nextRefresh: timestamp + refreshSeconds
+			};
 
 			return cache;
 		} finally {
