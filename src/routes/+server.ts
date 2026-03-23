@@ -5,7 +5,14 @@ export const GET: RequestHandler = async () =>
 	json(
 		{
 			service: 'api.nickesselman.nl',
-			endpoints: ['/stats', '/fitbit', '/device-state']
+			endpoints: [
+				'/stats',
+				'/fitbit',
+				'/device-state',
+				'/phone-state',
+				'/phone-state/stream',
+				'/spotify/currently-playing'
+			]
 		},
 		{
 			headers: {

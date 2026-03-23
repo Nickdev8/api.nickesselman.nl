@@ -8,6 +8,10 @@ Current endpoints:
 - `GET /fitbit` returns the same payload on a source-specific path
 - `GET /device-state` returns latest laptop+phone state with connected/disconnected labels
 - `POST /device-state` ingests laptop-published state (bearer token required)
+- `GET /phone-state` returns latest phone telemetry payload with connected/disconnected status
+- `POST /phone-state` ingests phone telemetry directly (bearer token required)
+- `GET /phone-state/stream` emits live SSE updates whenever `/phone-state` changes
+- `GET /spotify/currently-playing` proxies Spotify currently-playing with upstream polling cap (5 per 30 seconds)
 
 Docker:
 
@@ -24,6 +28,12 @@ Environment:
 - `FITBIT_TOKEN_DIR` defaults to `./data/fitbit`
 - `DEVICE_STATE_TOKEN` bearer token for `POST /device-state`
 - `DEVICE_STATE_STALE_SECONDS` optional staleness threshold before API reports `no laptop connected` (default `45`)
+- `PHONE_STATE_TOKEN` optional separate bearer token for `POST /phone-state` (falls back to `DEVICE_STATE_TOKEN`)
+- `PHONE_STATE_STALE_SECONDS` optional staleness threshold before API reports `no phone connected` (default `90`)
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
+- `SPOTIFY_REFRESH_TOKEN` (required for automatic token refresh)
+- `SPOTIFY_ACCESS_TOKEN` (optional bootstrap token; endpoint can still serve cached data when refresh is unavailable)
 
 Tokens are bootstrapped from env only when `tokens.json` is missing. After that, refreshed tokens are persisted to disk and reused across restarts.
 
