@@ -11,8 +11,6 @@ Current endpoints:
 - `GET /phone-state` returns latest phone telemetry payload with connected/disconnected status
 - `POST /phone-state` ingests phone telemetry directly (bearer token required)
 - `GET /phone-state/stream` emits live SSE updates whenever `/phone-state` changes
-- `GET /spotify/connect` starts Spotify account authorization flow
-- `GET /spotify/callback` OAuth callback endpoint used by Spotify authorization
 - `GET /spotify/currently-playing` proxies Spotify currently-playing with upstream polling cap (5 per 30 seconds)
 
 Docker:
@@ -34,8 +32,7 @@ Environment:
 - `PHONE_STATE_STALE_SECONDS` optional staleness threshold before API reports `no phone connected` (default `90`)
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
-- `SPOTIFY_REDIRECT_URI` should match your Spotify app redirect URI (default `https://api.nickesselman.nl/spotify/callback`)
-- `SPOTIFY_REFRESH_TOKEN` (stored after `/spotify/connect` OAuth callback succeeds)
+- `SPOTIFY_REFRESH_TOKEN` user refresh token with `user-read-currently-playing` / `user-read-playback-state` scopes
 - `SPOTIFY_ACCESS_TOKEN` (optional bootstrap token; endpoint can still serve cached data when refresh is unavailable)
 - `SPOTIFY_TOKEN_FILE` optional token storage path (default `./data/spotify/tokens.json`)
 
