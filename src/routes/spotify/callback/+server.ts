@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET } from '$env/static/private';
+import {
+	SPOTIFY_CLIENT_ID,
+	SPOTIFY_CLIENT_SECRET,
+	SPOTIFY_CONNECT_ENABLED
+} from '$env/static/private';
 import { storeTokensFromCallback } from '$lib/server/spotify';
 
 /**
@@ -8,6 +12,10 @@ import { storeTokensFromCallback } from '$lib/server/spotify';
  * NOTE: This is a one-time setup route. It should be locked down or removed after initial setup.
  */
 export const GET: RequestHandler = async ({ url }) => {
+	if (SPOTIFY_CONNECT_ENABLED !== 'true') {
+		return new Response(null, { status: 404 });
+	}
+
 	const code = url.searchParams.get('code');
 	const errorParam = url.searchParams.get('error');
 
