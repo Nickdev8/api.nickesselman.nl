@@ -11,8 +11,6 @@ export const GET: RequestHandler = async () =>
 				'/device-state',
 				'/phone-state',
 				'/phone-state/stream',
-				'/spotify/connect',
-				'/spotify/callback',
 				'/spotify/currently-playing'
 			]
 		},

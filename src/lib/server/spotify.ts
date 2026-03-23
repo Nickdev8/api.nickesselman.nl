@@ -1,6 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { randomBytes } from 'node:crypto';
 
 type SpotifyEnvelope = {
 	source: 'spotify' | 'cache';
@@ -18,17 +17,12 @@ type SpotifyTokenStore = {
 
 const SPOTIFY_CLIENT_ID = (process.env.SPOTIFY_CLIENT_ID ?? '').trim();
 const SPOTIFY_CLIENT_SECRET = (process.env.SPOTIFY_CLIENT_SECRET ?? '').trim();
-const SPOTIFY_REDIRECT_URI = (
-	process.env.SPOTIFY_REDIRECT_URI ?? 'https://api.nickesselman.nl/spotify/callback'
-).trim();
-const SPOTIFY_SCOPES = ['user-read-currently-playing', 'user-read-playback-state'];
 const TOKEN_FILE_PATH = resolve(process.cwd(), process.env.SPOTIFY_TOKEN_FILE ?? './data/spotify/tokens.json');
 
 const MAX_UPSTREAM_REQUESTS = 5;
 const REQUEST_WINDOW_MS = 30_000;
 const CACHE_TTL_MS = 6_000;
 const TOKEN_EXPIRY_SAFETY_MS = 60_000;
-const OAUTH_STATE_TTL_MS = 15 * 60_000;
 
 let accessToken = (process.env.SPOTIFY_ACCESS_TOKEN ?? '').trim();
 let refreshToken = (process.env.SPOTIFY_REFRESH_TOKEN ?? '').trim();
@@ -39,7 +33,6 @@ let lastFetchMs = 0;
 let lastPayload: unknown = null;
 const upstreamFetchTimes: number[] = [];
 let inflight: Promise<SpotifyEnvelope> | null = null;
-const oauthStates = new Map<string, number>();
 let spotifyBlockedUntilMs = 0;
 let retryBackoffMs = 1_000;
 
@@ -99,15 +92,6 @@ const parseRetryAfterSeconds = (value: string | null): number | null => {
 	return null;
 };
 
-const pruneOauthStates = () => {
-	const now = nowMs();
-	for (const [state, createdAt] of oauthStates.entries()) {
-		if (now - createdAt > OAUTH_STATE_TTL_MS) {
-			oauthStates.delete(state);
-		}
-	}
-};
-
 const assertSpotifyAppConfigured = () => {
 	if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
 		throw new Error('Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET');
@@ -127,7 +111,7 @@ const ensureAccessToken = async (): Promise<string> => {
 			return accessToken;
 		}
 		throw new Error(
-			'Spotify not connected. Open /spotify/connect once to authorize your account.'
+			'Spotify not configured for currently-playing. Set SPOTIFY_REFRESH_TOKEN (user token) or a valid SPOTIFY_ACCESS_TOKEN.'
 		);
 	}
 
@@ -283,77 +267,6 @@ const fetchEnvelope = async (): Promise<SpotifyEnvelope> => {
 			error: message
 		};
 	}
-};
-
-export const beginSpotifyAuthorization = (): string => {
-	assertSpotifyAppConfigured();
-	pruneOauthStates();
-	const state = randomBytes(18).toString('hex');
-	oauthStates.set(state, nowMs());
-
-	const params = new URLSearchParams({
-		client_id: SPOTIFY_CLIENT_ID,
-		response_type: 'code',
-		redirect_uri: SPOTIFY_REDIRECT_URI,
-		scope: SPOTIFY_SCOPES.join(' '),
-		state
-	});
-	return `https://accounts.spotify.com/authorize?${params.toString()}`;
-};
-
-export const completeSpotifyAuthorization = async (
-	code: string | null,
-	state: string | null,
-	error: string | null
-): Promise<{ ok: boolean; message: string }> => {
-	assertSpotifyAppConfigured();
-	pruneOauthStates();
-
-	if (error) {
-		return { ok: false, message: `Spotify authorization failed: ${error}` };
-	}
-	if (!code || !state) {
-		return { ok: false, message: 'Missing Spotify authorization code or state.' };
-	}
-	if (!oauthStates.has(state)) {
-		return { ok: false, message: 'Invalid or expired Spotify OAuth state. Restart from /spotify/connect.' };
-	}
-	oauthStates.delete(state);
-
-	const body = new URLSearchParams({
-		grant_type: 'authorization_code',
-		code,
-		redirect_uri: SPOTIFY_REDIRECT_URI
-	});
-
-	const response = await fetch('https://accounts.spotify.com/api/token', {
-		method: 'POST',
-		headers: {
-			Authorization: `Basic ${base64(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`)}`,
-			'content-type': 'application/x-www-form-urlencoded'
-		},
-		body
-	});
-	if (!response.ok) {
-		return { ok: false, message: `Spotify code exchange failed with ${response.status}` };
-	}
-
-	const payload = (await response.json()) as {
-		access_token?: string;
-		refresh_token?: string;
-		expires_in?: number;
-	};
-	if (!payload.access_token) {
-		return { ok: false, message: 'Spotify code exchange did not return access_token.' };
-	}
-
-	accessToken = payload.access_token;
-	accessTokenExpiresAtMs = parseTokenExpiryMs(payload.expires_in);
-	if (payload.refresh_token && payload.refresh_token.trim()) {
-		refreshToken = payload.refresh_token.trim();
-	}
-	persistTokenStore();
-	return { ok: true, message: 'Spotify connected. /spotify/currently-playing is now active.' };
 };
 
 export const getSpotifyCurrentlyPlaying = async (): Promise<SpotifyEnvelope> => {
