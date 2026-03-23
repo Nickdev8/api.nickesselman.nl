@@ -5,7 +5,7 @@ export const GET: RequestHandler = async () =>
 	json(
 		{
 			service: 'api.nickesselman.nl',
-			endpoints: ['/stats', '/fitbit']
+			endpoints: ['/stats', '/fitbit', '/device-state']
 		},
 		{
 			headers: {
