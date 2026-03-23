@@ -21,7 +21,8 @@ const TOKEN_FILE_PATH = resolve(process.cwd(), process.env.SPOTIFY_TOKEN_FILE ??
 
 const MAX_UPSTREAM_REQUESTS = 5;
 const REQUEST_WINDOW_MS = 30_000;
-const CACHE_TTL_MS = 6_000;
+const ACTIVE_CACHE_TTL_MS = 6_000;
+const IDLE_CACHE_TTL_MS = 30_000;
 const TOKEN_EXPIRY_SAFETY_MS = 60_000;
 
 let accessToken = (process.env.SPOTIFY_ACCESS_TOKEN ?? '').trim();
@@ -240,7 +241,14 @@ const fetchEnvelope = async (): Promise<SpotifyEnvelope> => {
 	const now = nowMs();
 	pruneRequestWindow(now);
 
-	if (lastPayload !== null && now - lastFetchMs < CACHE_TTL_MS) {
+	const isPlaying =
+		lastPayload !== null &&
+		typeof lastPayload === 'object' &&
+		(lastPayload as { is_playing?: boolean }).is_playing === true;
+
+	const ttl = isPlaying ? ACTIVE_CACHE_TTL_MS : IDLE_CACHE_TTL_MS;
+
+	if (lastPayload !== null && now - lastFetchMs < ttl) {
 		return cachedEnvelope(null, false);
 	}
 
