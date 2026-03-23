@@ -52,6 +52,21 @@ const parseTokenExpiryMs = (expiresInSeconds: unknown): number => {
 	return nowMs() + Math.max(300, Math.round(expiresInSeconds)) * 1000;
 };
 
+export const storeTokensFromCallback = ({
+	accessToken: newAccessToken,
+	refreshToken: newRefreshToken,
+	expiresIn
+}: {
+	accessToken: string;
+	refreshToken: string;
+	expiresIn: number;
+}) => {
+	accessToken = newAccessToken;
+	refreshToken = newRefreshToken;
+	accessTokenExpiresAtMs = parseTokenExpiryMs(expiresIn);
+	persistTokenStore();
+};
+
 const loadTokenStore = () => {
 	if (tokenStoreLoaded) return;
 	tokenStoreLoaded = true;

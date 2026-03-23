@@ -5,14 +5,35 @@ export const GET: RequestHandler = async () =>
 	json(
 		{
 			service: 'api.nickesselman.nl',
-			endpoints: [
-				'/stats',
-				'/fitbit',
-				'/device-state',
-				'/phone-state',
-				'/phone-state/stream',
-				'/spotify/currently-playing'
-			]
+			endpoints: {
+				'/': {
+					description: 'This endpoint. Lists all available endpoints.'
+				},
+				'/stats': {
+					description: 'Get general statistics about the service.'
+				},
+				'/fitbit': {
+					description: 'Get current health/activity data from Fitbit.'
+				},
+				'/device-state': {
+					description: 'Get or update the state of various home devices.'
+				},
+				'/phone-state': {
+					description: 'Get the current state of the primary phone (battery, location, etc.).'
+				},
+				'/phone-state/stream': {
+					description: 'Server-Sent Events stream for real-time phone state updates.'
+				},
+				'/spotify/currently-playing': {
+					description: 'Get the currently playing track on Spotify.'
+				},
+				'/spotify/connect': {
+					description: 'Initiate Spotify OAuth flow (one-time setup).'
+				},
+				'/spotify/callback': {
+					description: 'Spotify OAuth callback handler (one-time setup).'
+				}
+			}
 		},
 		{
 			headers: {

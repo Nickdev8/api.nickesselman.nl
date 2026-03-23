@@ -30,7 +30,7 @@ export const createStatsResponse = async (event: RequestEvent) => {
 				headers: {
 					...DEFAULT_HEADERS,
 					...rateLimit.headers,
-					'cache-control': 'private, no-store'
+					'cache-control': 'no-store'
 				}
 			}
 		);
@@ -41,7 +41,7 @@ export const createStatsResponse = async (event: RequestEvent) => {
 		headers: {
 			...DEFAULT_HEADERS,
 			...rateLimit.headers,
-			'cache-control': buildCacheControl(stats.nextRefresh)
+			'cache-control': 'no-store'
 		}
 	});
 };
