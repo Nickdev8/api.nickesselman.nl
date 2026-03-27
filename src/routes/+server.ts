@@ -17,7 +17,7 @@ export const GET: RequestHandler = async () => {
 			description: 'Get or update the state of various home devices.'
 		},
 		'/phone-state': {
-			description: 'Get the current state of the primary phone (battery, location, etc.).'
+			description: 'Get the current state of the primary phone (battery, screen, media, etc.).'
 		},
 		'/phone-state/stream': {
 			description: 'Server-Sent Events stream for real-time phone state updates.'

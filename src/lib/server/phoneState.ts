@@ -11,8 +11,6 @@ export type PhoneStatePayload = {
 	mediaPlaying: boolean;
 	screenOn: boolean;
 	screenLocked: boolean;
-	isAtHome: boolean;
-	isAtSchool: boolean;
 };
 
 export type PhoneStateStatus = {
@@ -26,8 +24,6 @@ export type PhoneStateStatus = {
 	mediaPlaying: boolean;
 	screenOn: boolean;
 	screenLocked: boolean;
-	isAtHome: boolean;
-	isAtSchool: boolean;
 };
 
 type PhoneStateListener = (status: PhoneStateStatus) => void;
@@ -82,9 +78,7 @@ export const parsePhoneStatePayload = (value: unknown): PhoneStatePayload | null
 		volumePercent: parsePercent(record.volumePercent),
 		mediaPlaying: parseBoolean(record.mediaPlaying),
 		screenOn: parseBoolean(record.screenOn),
-		screenLocked: parseBoolean(record.screenLocked),
-		isAtHome: parseBoolean(record.isAtHome),
-		isAtSchool: parseBoolean(record.isAtSchool)
+		screenLocked: parseBoolean(record.screenLocked)
 	};
 };
 
@@ -111,9 +105,7 @@ export const buildPhoneStateStatus = (): PhoneStateStatus => {
 			volumePercent: null,
 			mediaPlaying: false,
 			screenOn: false,
-			screenLocked: false,
-			isAtHome: false,
-			isAtSchool: false
+			screenLocked: false
 		};
 	}
 
@@ -129,9 +121,7 @@ export const buildPhoneStateStatus = (): PhoneStateStatus => {
 			volumePercent: null,
 			mediaPlaying: false,
 			screenOn: false,
-			screenLocked: false,
-			isAtHome: false,
-			isAtSchool: false
+			screenLocked: false
 		};
 	}
 
@@ -146,9 +136,7 @@ export const buildPhoneStateStatus = (): PhoneStateStatus => {
 		volumePercent: payload.volumePercent,
 		mediaPlaying: payload.mediaPlaying,
 		screenOn: payload.screenOn,
-		screenLocked: payload.screenLocked,
-		isAtHome: payload.isAtHome,
-		isAtSchool: payload.isAtSchool
+		screenLocked: payload.screenLocked
 	};
 };
 
