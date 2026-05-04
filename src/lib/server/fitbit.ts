@@ -36,6 +36,7 @@ const SUCCESS_REFRESH_SECONDS = 10 * 60;
 const PARTIAL_ERROR_REFRESH_SECONDS = 5 * 60;
 const EMPTY_ERROR_REFRESH_SECONDS = 2 * 60;
 const AUTH_ERROR_REFRESH_SECONDS = 10 * 60;
+const FITBIT_REQUEST_TIMEOUT_MS = 1500;
 const FITBIT_API_BASE = 'https://api.fitbit.com';
 const EMPTY_STATS: StatsPayload = {
 	steps: null,
@@ -246,6 +247,33 @@ const setTokens = (accessToken: string, refreshToken: string | null, expiresInSe
 	});
 };
 
+const fetchWithTimeout = async (
+	input: string,
+	init: RequestInit = {},
+	timeoutMs = FITBIT_REQUEST_TIMEOUT_MS
+) => {
+	const controller = new AbortController();
+	const timer = setTimeout(
+		() => controller.abort(new Error(`Timed out after ${timeoutMs}ms`)),
+		timeoutMs
+	);
+
+	try {
+		return await fetch(input, {
+			...init,
+			signal: controller.signal
+		});
+	} finally {
+		clearTimeout(timer);
+	}
+};
+
+const buildUnavailableStats = (message: string): StatsPayload => ({
+	...cache,
+	errorMessage: message,
+	nextRefresh: nowSeconds() + EMPTY_ERROR_REFRESH_SECONDS
+});
+
 const refreshAccessToken = async (allowEnvReset = true): Promise<boolean> => {
 	await initTokens();
 
@@ -263,7 +291,7 @@ const refreshAccessToken = async (allowEnvReset = true): Promise<boolean> => {
 		refresh_token: tokenState.refreshToken
 	});
 
-	const response = await fetch(`${FITBIT_API_BASE}/oauth2/token`, {
+	const response = await fetchWithTimeout(`${FITBIT_API_BASE}/oauth2/token`, {
 		method: 'POST',
 		headers: {
 			Authorization: `Basic ${basicAuth}`,
@@ -318,28 +346,21 @@ const ensureValidAccessToken = async () => {
 	return true;
 };
 
-const fetchActivity = async (): Promise<
+const authHeaders = (accessToken: string) => ({
+	Authorization: `Bearer ${accessToken}`
+});
+
+const fetchActivity = async (
+	accessToken: string
+): Promise<
 	Pick<
 		StatsPayload,
 		'steps' | 'distanceKm' | 'activeMinutes' | 'caloriesOut' | 'restingHeartRate'
 	>
 > => {
-	const ready = await ensureValidAccessToken();
-	if (!ready || !tokenState.accessToken) {
-		return {
-			steps: null,
-			distanceKm: null,
-			activeMinutes: null,
-			caloriesOut: null,
-			restingHeartRate: null
-		};
-	}
-
 	const today = new Date().toISOString().slice(0, 10);
-	const response = await fetch(`${FITBIT_API_BASE}/1/user/-/activities/date/${today}.json`, {
-		headers: {
-			Authorization: `Bearer ${tokenState.accessToken}`
-		}
+	const response = await fetchWithTimeout(`${FITBIT_API_BASE}/1/user/-/activities/date/${today}.json`, {
+		headers: authHeaders(accessToken)
 	});
 
 	if (!response.ok) {
@@ -376,17 +397,12 @@ const fetchActivity = async (): Promise<
 	};
 };
 
-const fetchSleep = async (): Promise<Pick<StatsPayload, 'sleepDurationMinutes' | 'sleepScore'>> => {
-	const ready = await ensureValidAccessToken();
-	if (!ready || !tokenState.accessToken) {
-		return { sleepDurationMinutes: null, sleepScore: null };
-	}
-
+const fetchSleep = async (
+	accessToken: string
+): Promise<Pick<StatsPayload, 'sleepDurationMinutes' | 'sleepScore'>> => {
 	const today = new Date().toISOString().slice(0, 10);
-	const response = await fetch(`${FITBIT_API_BASE}/1.2/user/-/sleep/date/${today}.json`, {
-		headers: {
-			Authorization: `Bearer ${tokenState.accessToken}`
-		}
+	const response = await fetchWithTimeout(`${FITBIT_API_BASE}/1.2/user/-/sleep/date/${today}.json`, {
+		headers: authHeaders(accessToken)
 	});
 
 	if (!response.ok) {
@@ -412,19 +428,14 @@ const fetchSleep = async (): Promise<Pick<StatsPayload, 'sleepDurationMinutes' |
 	};
 };
 
-const fetchHeartRate = async (): Promise<number | null> => {
-	const ready = await ensureValidAccessToken();
-	if (!ready || !tokenState.accessToken) return null;
-
+const fetchHeartRate = async (accessToken: string): Promise<number | null> => {
 	const today = new Date().toISOString().slice(0, 10);
 
 	try {
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`${FITBIT_API_BASE}/1/user/-/activities/heart/date/${today}/1d/1min.json`,
 			{
-				headers: {
-					Authorization: `Bearer ${tokenState.accessToken}`
-				}
+				headers: authHeaders(accessToken)
 			}
 		);
 
@@ -443,11 +454,12 @@ const fetchHeartRate = async (): Promise<number | null> => {
 	}
 
 	try {
-		const response = await fetch(`${FITBIT_API_BASE}/1/user/-/activities/heart/date/${today}/1d.json`, {
-			headers: {
-				Authorization: `Bearer ${tokenState.accessToken}`
+		const response = await fetchWithTimeout(
+			`${FITBIT_API_BASE}/1/user/-/activities/heart/date/${today}/1d.json`,
+			{
+				headers: authHeaders(accessToken)
 			}
-		});
+		);
 
 		if (!response.ok) {
 			const text = await response.text();
@@ -468,14 +480,9 @@ const fetchHeartRate = async (): Promise<number | null> => {
 	return null;
 };
 
-const fetchStepsWeek = async (): Promise<number | null> => {
-	const ready = await ensureValidAccessToken();
-	if (!ready || !tokenState.accessToken) return null;
-
-	const response = await fetch(`${FITBIT_API_BASE}/1/user/-/activities/steps/date/today/7d.json`, {
-		headers: {
-			Authorization: `Bearer ${tokenState.accessToken}`
-		}
+const fetchStepsWeek = async (accessToken: string): Promise<number | null> => {
+	const response = await fetchWithTimeout(`${FITBIT_API_BASE}/1/user/-/activities/steps/date/today/7d.json`, {
+		headers: authHeaders(accessToken)
 	});
 
 	if (!response.ok) {
@@ -497,15 +504,10 @@ const fetchStepsWeek = async (): Promise<number | null> => {
 	return Number.isFinite(total) ? total : null;
 };
 
-const fetchFloors = async (): Promise<number | null> => {
-	const ready = await ensureValidAccessToken();
-	if (!ready || !tokenState.accessToken) return null;
-
+const fetchFloors = async (accessToken: string): Promise<number | null> => {
 	const today = new Date().toISOString().slice(0, 10);
-	const response = await fetch(`${FITBIT_API_BASE}/1/user/-/activities/floors/date/${today}/1d.json`, {
-		headers: {
-			Authorization: `Bearer ${tokenState.accessToken}`
-		}
+	const response = await fetchWithTimeout(`${FITBIT_API_BASE}/1/user/-/activities/floors/date/${today}/1d.json`, {
+		headers: authHeaders(accessToken)
 	});
 
 	if (!response.ok) {
@@ -527,21 +529,16 @@ const fetchFloors = async (): Promise<number | null> => {
 	return Number.isFinite(value) ? value : null;
 };
 
-const fetchStepsLast24h = async (): Promise<number | null> => {
-	const ready = await ensureValidAccessToken();
-	if (!ready || !tokenState.accessToken) return null;
-
+const fetchStepsLast24h = async (accessToken: string): Promise<number | null> => {
 	const now = new Date();
 	const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 	const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
 	const fetchDay = async (dateStr: string) => {
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`${FITBIT_API_BASE}/1/user/-/activities/steps/date/${dateStr}/1d/1min.json`,
 			{
-				headers: {
-					Authorization: `Bearer ${tokenState.accessToken}`
-				}
+				headers: authHeaders(accessToken)
 			}
 		);
 
@@ -600,12 +597,10 @@ const fetchStepsLast24h = async (): Promise<number | null> => {
 	try {
 		const start = formatDate(yesterday);
 		const end = formatDate(now);
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`${FITBIT_API_BASE}/1/user/-/activities/steps/date/${start}/${end}.json`,
 			{
-				headers: {
-					Authorization: `Bearer ${tokenState.accessToken}`
-				}
+				headers: authHeaders(accessToken)
 			}
 		);
 
@@ -632,6 +627,141 @@ const fetchStepsLast24h = async (): Promise<number | null> => {
 	}
 };
 
+const refreshStats = async (): Promise<StatsPayload> => {
+	const previous = cache;
+	let activity: Awaited<ReturnType<typeof fetchActivity>> | null = null;
+	let sleep: Awaited<ReturnType<typeof fetchSleep>> | null = null;
+	let heartRate: number | null = null;
+	let stepsWeek: number | null = null;
+	let floors: number | null = null;
+	let steps24h: number | null = null;
+	let fetchErrorMessage: string | null = null;
+
+	const rememberError = (error: unknown) => {
+		if (tokenInvalid || fetchErrorMessage) return;
+		if (error instanceof Error && error.message) {
+			fetchErrorMessage = error.message;
+			return;
+		}
+		fetchErrorMessage = 'Unable to load Fitbit data.';
+	};
+
+	try {
+		const ready = await ensureValidAccessToken();
+		if (ready && tokenState.accessToken) {
+			const accessToken = tokenState.accessToken;
+			const [
+				activityResult,
+				sleepResult,
+				heartRateResult,
+				stepsWeekResult,
+				floorsResult,
+				steps24hResult
+			] = await Promise.allSettled([
+				fetchActivity(accessToken),
+				fetchSleep(accessToken),
+				fetchHeartRate(accessToken),
+				fetchStepsWeek(accessToken),
+				fetchFloors(accessToken),
+				fetchStepsLast24h(accessToken)
+			]);
+
+			if (activityResult.status === 'fulfilled') {
+				activity = activityResult.value;
+			} else {
+				console.error('Fitbit activity fetch error:', activityResult.reason);
+				rememberError(activityResult.reason);
+			}
+
+			if (sleepResult.status === 'fulfilled') {
+				sleep = sleepResult.value;
+			} else {
+				console.error('Fitbit sleep fetch error:', sleepResult.reason);
+				rememberError(sleepResult.reason);
+			}
+
+			if (heartRateResult.status === 'fulfilled') {
+				heartRate = heartRateResult.value;
+			} else {
+				console.error('Fitbit heart rate fetch error:', heartRateResult.reason);
+				rememberError(heartRateResult.reason);
+			}
+
+			if (stepsWeekResult.status === 'fulfilled') {
+				stepsWeek = stepsWeekResult.value;
+			} else {
+				console.error('Fitbit weekly steps fetch error:', stepsWeekResult.reason);
+				rememberError(stepsWeekResult.reason);
+			}
+
+			if (floorsResult.status === 'fulfilled') {
+				floors = floorsResult.value;
+			} else {
+				console.error('Fitbit floors fetch error:', floorsResult.reason);
+				rememberError(floorsResult.reason);
+			}
+
+			if (steps24hResult.status === 'fulfilled') {
+				steps24h = steps24hResult.value;
+			} else {
+				console.error('Fitbit steps 24h fetch error:', steps24hResult.reason);
+				rememberError(steps24hResult.reason);
+			}
+		}
+	} catch (error) {
+		if (!tokenInvalid) {
+			console.error('Fitbit token refresh error:', error);
+		}
+		rememberError(error);
+	}
+
+	const authError = tokenInvalid;
+	const timestamp = nowSeconds();
+	const hasUpdate =
+		(activity && Object.values(activity).some((value) => value !== null && value !== undefined)) ||
+		heartRate !== null ||
+		stepsWeek !== null ||
+		floors !== null ||
+		steps24h !== null ||
+		(sleep && (sleep.sleepDurationMinutes !== null || sleep.sleepScore !== null));
+	const refreshSeconds = authError
+		? AUTH_ERROR_REFRESH_SECONDS
+		: fetchErrorMessage
+			? hasUpdate || previous.lastUpdated !== null
+				? PARTIAL_ERROR_REFRESH_SECONDS
+				: EMPTY_ERROR_REFRESH_SECONDS
+			: SUCCESS_REFRESH_SECONDS;
+
+	cache = {
+		steps: steps24h ?? activity?.steps ?? previous.steps,
+		distanceKm: activity?.distanceKm ?? previous.distanceKm,
+		activeMinutes: activity?.activeMinutes ?? previous.activeMinutes,
+		caloriesOut: activity?.caloriesOut ?? previous.caloriesOut,
+		restingHeartRate: activity?.restingHeartRate ?? previous.restingHeartRate,
+		sleepDurationMinutes: sleep?.sleepDurationMinutes ?? previous.sleepDurationMinutes,
+		sleepScore: sleep?.sleepScore ?? previous.sleepScore,
+		heartRateBpm: heartRate ?? previous.heartRateBpm,
+		stepsWeek: stepsWeek ?? previous.stepsWeek,
+		floors: floors ?? previous.floors,
+		errorMessage: authError ? 'Please refresh the Fitbit token on the site.' : fetchErrorMessage,
+		lastUpdated: hasUpdate ? timestamp : previous.lastUpdated,
+		nextRefresh: timestamp + refreshSeconds
+	};
+
+	return cache;
+};
+
+const startRefresh = () => {
+	if (inflight) {
+		return inflight;
+	}
+
+	inflight = refreshStats().finally(() => {
+		inflight = null;
+	});
+	return inflight;
+};
+
 export const getFitbitStats = async (): Promise<StatsPayload> => {
 	const now = nowSeconds();
 
@@ -639,113 +769,11 @@ export const getFitbitStats = async (): Promise<StatsPayload> => {
 		return cache;
 	}
 
-	if (inflight) {
-		return inflight;
+	void startRefresh();
+
+	if (cache.lastUpdated !== null || cache.errorMessage) {
+		return cache;
 	}
 
-	inflight = (async () => {
-		const previous = cache;
-		let activity: Awaited<ReturnType<typeof fetchActivity>> | null = null;
-		let sleep: Awaited<ReturnType<typeof fetchSleep>> | null = null;
-		let heartRate: number | null = null;
-		let stepsWeek: number | null = null;
-		let floors: number | null = null;
-		let steps24h: number | null = null;
-		let fetchErrorMessage: string | null = null;
-
-		const rememberError = (error: unknown) => {
-			if (tokenInvalid || fetchErrorMessage) return;
-			if (error instanceof Error && error.message) {
-				fetchErrorMessage = error.message;
-				return;
-			}
-			fetchErrorMessage = 'Unable to load Fitbit data.';
-		};
-
-		try {
-			try {
-				activity = await fetchActivity();
-			} catch (error) {
-				if (!tokenInvalid) console.error('Fitbit activity fetch error:', error);
-				rememberError(error);
-			}
-
-			try {
-				sleep = await fetchSleep();
-			} catch (error) {
-				if (!tokenInvalid) console.error('Fitbit sleep fetch error:', error);
-				rememberError(error);
-			}
-
-			try {
-				heartRate = await fetchHeartRate();
-			} catch (error) {
-				if (!tokenInvalid) console.error('Fitbit heart rate fetch error:', error);
-				rememberError(error);
-			}
-
-			try {
-				stepsWeek = await fetchStepsWeek();
-			} catch (error) {
-				if (!tokenInvalid) console.error('Fitbit weekly steps fetch error:', error);
-				rememberError(error);
-			}
-
-			try {
-				floors = await fetchFloors();
-			} catch (error) {
-				if (!tokenInvalid) console.error('Fitbit floors fetch error:', error);
-				rememberError(error);
-			}
-
-			try {
-				steps24h = await fetchStepsLast24h();
-			} catch (error) {
-				if (!tokenInvalid) console.error('Fitbit steps 24h fetch error:', error);
-				rememberError(error);
-			}
-
-			const authError = tokenInvalid;
-			const timestamp = nowSeconds();
-			const hasUpdate =
-				(activity && Object.values(activity).some((value) => value !== null && value !== undefined)) ||
-				heartRate !== null ||
-				stepsWeek !== null ||
-				floors !== null ||
-				steps24h !== null ||
-				(sleep &&
-					(sleep.sleepDurationMinutes !== null || sleep.sleepScore !== null));
-			const refreshSeconds = authError
-				? AUTH_ERROR_REFRESH_SECONDS
-				: fetchErrorMessage
-					? hasUpdate || previous.lastUpdated !== null
-						? PARTIAL_ERROR_REFRESH_SECONDS
-						: EMPTY_ERROR_REFRESH_SECONDS
-					: SUCCESS_REFRESH_SECONDS;
-
-			cache = {
-				steps: steps24h ?? activity?.steps ?? previous.steps,
-				distanceKm: activity?.distanceKm ?? previous.distanceKm,
-				activeMinutes: activity?.activeMinutes ?? previous.activeMinutes,
-				caloriesOut: activity?.caloriesOut ?? previous.caloriesOut,
-				restingHeartRate: activity?.restingHeartRate ?? previous.restingHeartRate,
-				sleepDurationMinutes: sleep?.sleepDurationMinutes ?? previous.sleepDurationMinutes,
-				sleepScore: sleep?.sleepScore ?? previous.sleepScore,
-				heartRateBpm: heartRate ?? previous.heartRateBpm,
-				stepsWeek: stepsWeek ?? previous.stepsWeek,
-				floors: floors ?? previous.floors,
-				errorMessage: authError
-					? 'Please refresh the Fitbit token on the site.'
-					: fetchErrorMessage,
-				lastUpdated: hasUpdate ? timestamp : previous.lastUpdated,
-				nextRefresh: timestamp + refreshSeconds
-			};
-
-			return cache;
-		} finally {
-			inflight = null;
-		}
-	})();
-
-	return inflight;
+	return buildUnavailableStats('Fitbit data is temporarily unavailable.');
 };
