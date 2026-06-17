@@ -29,7 +29,8 @@ Environment:
 - `DEVICE_STATE_TOKEN` bearer token for `POST /device-state`
 - `DEVICE_STATE_STALE_SECONDS` optional staleness threshold before API reports `no laptop connected` (default `45`)
 - `PHONE_STATE_TOKEN` optional separate bearer token for `POST /phone-state` (falls back to `DEVICE_STATE_TOKEN`)
-- `PHONE_STATE_STALE_SECONDS` optional staleness threshold before API reports `no phone connected` (default `90`)
+- `PHONE_STATE_STALE_SECONDS` optional staleness threshold before API reports `no phone connected` (default `1200`, matching Android's idle refresh cadence)
+- `PHONE_STATE_FILE` optional persisted latest phone-state path (default `./data/phone-state/state.json`)
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
 - `SPOTIFY_REFRESH_TOKEN` user refresh token with `user-read-currently-playing` / `user-read-playback-state` scopes

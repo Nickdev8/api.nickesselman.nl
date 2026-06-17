@@ -3,4 +3,5 @@ node_modules
 build
 .env
 data/fitbit/tokens.json
+data/phone-state/state.json
 npm-debug.log*

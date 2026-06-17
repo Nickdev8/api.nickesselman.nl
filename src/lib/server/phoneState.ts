@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+
 type StoredPhoneState = {
 	receivedAtMs: number;
 	payload: PhoneStatePayload;
@@ -28,18 +31,24 @@ export type PhoneStateStatus = {
 
 type PhoneStateListener = (status: PhoneStateStatus) => void;
 
-const PHONE_STATE_STALE_SECONDS = Number.parseInt(process.env.PHONE_STATE_STALE_SECONDS ?? '90', 10);
+const DEFAULT_PHONE_STATE_STALE_MS = 20 * 60 * 1000;
+const PHONE_STATE_STALE_SECONDS = Number.parseInt(process.env.PHONE_STATE_STALE_SECONDS ?? '1200', 10);
 const PHONE_STATE_STALE_MS =
 	Number.isFinite(PHONE_STATE_STALE_SECONDS) && PHONE_STATE_STALE_SECONDS > 0
 		? PHONE_STATE_STALE_SECONDS * 1000
-		: 90_000;
+		: DEFAULT_PHONE_STATE_STALE_MS;
 const PHONE_STATE_TOKEN = (
 	process.env.PHONE_STATE_TOKEN ??
 	process.env.DEVICE_STATE_TOKEN ??
 	''
 ).trim();
+const PHONE_STATE_FILE = resolve(
+	process.cwd(),
+	process.env.PHONE_STATE_FILE ?? './data/phone-state/state.json'
+);
 
 let latestPhoneState: StoredPhoneState | null = null;
+let storedPhoneStateLoaded = false;
 const listeners = new Set<PhoneStateListener>();
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
@@ -82,11 +91,46 @@ export const parsePhoneStatePayload = (value: unknown): PhoneStatePayload | null
 	};
 };
 
+const loadStoredPhoneState = (): void => {
+	if (storedPhoneStateLoaded) return;
+	storedPhoneStateLoaded = true;
+
+	if (!existsSync(PHONE_STATE_FILE)) return;
+
+	try {
+		const raw = readFileSync(PHONE_STATE_FILE, 'utf-8');
+		const parsed = asRecord(JSON.parse(raw));
+		if (!parsed) return;
+
+		const receivedAtMs = parsed.receivedAtMs;
+		if (typeof receivedAtMs !== 'number' || !Number.isFinite(receivedAtMs)) return;
+
+		const payload = parsePhoneStatePayload(parsed.payload);
+		if (!payload) return;
+
+		latestPhoneState = { receivedAtMs, payload };
+	} catch {
+		// Persistence is best-effort; a bad cache file should not break the endpoint.
+	}
+};
+
+const persistStoredPhoneState = (state: StoredPhoneState): void => {
+	try {
+		mkdirSync(dirname(PHONE_STATE_FILE), { recursive: true });
+		const tmpPath = `${PHONE_STATE_FILE}.tmp`;
+		writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf-8');
+		renameSync(tmpPath, PHONE_STATE_FILE);
+	} catch {
+		// Keep serving in-memory state even if disk persistence fails.
+	}
+};
+
 export const storePhoneState = (payload: PhoneStatePayload): void => {
 	latestPhoneState = {
 		receivedAtMs: Date.now(),
 		payload
 	};
+	persistStoredPhoneState(latestPhoneState);
 	const snapshot = buildPhoneStateStatus();
 	for (const listener of listeners) {
 		listener(snapshot);
@@ -94,6 +138,8 @@ export const storePhoneState = (payload: PhoneStatePayload): void => {
 };
 
 export const buildPhoneStateStatus = (): PhoneStateStatus => {
+	loadStoredPhoneState();
+
 	if (!latestPhoneState) {
 		return {
 			updatedAt: null,
