@@ -24,6 +24,18 @@ export const GET: RequestHandler = async () => {
 		},
 		'/spotify/currently-playing': {
 			description: 'Get the currently playing track on Spotify.'
+		},
+		'/badge/spotify.svg': {
+			description: 'SVG image badge for the current Spotify status.'
+		},
+		'/badge/phone.svg': {
+			description: 'SVG image badge for safe public phone status.'
+		},
+		'/badge/fitbit.svg': {
+			description: 'SVG image badge for safe public Fitbit stats.'
+		},
+		'/badge/stats.svg': {
+			description: 'SVG image badge for API status.'
 		}
 	};
 
