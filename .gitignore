@@ -4,4 +4,6 @@ build
 .env
 data/fitbit/tokens.json
 data/phone-state/state.json
+data/spotify/tokens.json
+.migration-backups/
 npm-debug.log*

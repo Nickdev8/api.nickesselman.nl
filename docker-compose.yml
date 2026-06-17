@@ -1,8 +1,9 @@
 services:
   api-site:
     build: .
+    network_mode: bridge
     ports:
-      - "3101:3101"
+      - "127.0.0.1:3101:3101"
     env_file:
       - .env
     environment:
