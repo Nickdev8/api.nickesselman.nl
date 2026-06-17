@@ -15,7 +15,11 @@ const XP_BLUE = '#0055e5';
 
 export const BADGE_HEADERS = {
 	'content-type': 'image/svg+xml; charset=utf-8',
-	'cache-control': 'public, max-age=30'
+	'cache-control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
+	pragma: 'no-cache',
+	expires: '0',
+	'surrogate-control': 'no-store',
+	'x-accel-expires': '0'
 };
 
 export const escapeXml = (value: string): string =>
@@ -33,6 +37,20 @@ const trimLine = (value: string): string => {
 	const compact = value.replace(/\s+/g, ' ').trim();
 	return compact.length > 52 ? `${compact.slice(0, 49)}...` : compact;
 };
+
+export const formatAmsterdamBadgeTime = (date = new Date()): string =>
+	new Intl.DateTimeFormat('en-GB', {
+		timeZone: 'Europe/Amsterdam',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		hour12: false
+	}).format(date);
+
+export const addUpdatedLine = (lines: string[], date = new Date()): string[] => [
+	...lines.slice(0, 3),
+	`Updated: ${formatAmsterdamBadgeTime(date)}`
+];
 
 const iconSvg = (type: XpBadgeIconType, accentColor: string): string => {
 	switch (type) {
@@ -88,8 +106,8 @@ export const createXpBadgeSvg = ({
 }: XpBadgeOptions): string => {
 	const color = safeAccentColor(accentColor);
 	const escapedTitle = escapeXml(trimLine(title));
-	const safeLines = lines.slice(0, 3).map((line) => escapeXml(trimLine(line)));
-	const bodyY = [43, 60, 76];
+	const safeLines = lines.slice(0, 4).map((line) => escapeXml(trimLine(line)));
+	const bodyY = [42, 55, 68, 79];
 
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapedTitle}">
@@ -109,7 +127,7 @@ export const createXpBadgeSvg = ({
 	${safeLines
 		.map(
 			(line, index) =>
-				`<text x="62" y="${bodyY[index]}" fill="${index === 0 ? '#111111' : '#333333'}" font-family="Tahoma, Arial, sans-serif" font-size="${index === 0 ? 14 : 13}" font-weight="${index === 0 ? 'bold' : 'normal'}">${line}</text>`
+				`<text x="62" y="${bodyY[index]}" fill="${index === 0 ? '#111111' : '#333333'}" font-family="Tahoma, Arial, sans-serif" font-size="${index === 0 ? 13 : 12}" font-weight="${index === 0 ? 'bold' : 'normal'}">${line}</text>`
 		)
 		.join('\n\t')}
 </svg>

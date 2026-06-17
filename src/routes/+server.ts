@@ -28,14 +28,26 @@ export const GET: RequestHandler = async () => {
 		'/badge/spotify.svg': {
 			description: 'SVG image badge for the current Spotify status.'
 		},
+		'/badge/spotify/live.svg': {
+			description: 'No-cache SVG image badge for the current Spotify status.'
+		},
 		'/badge/phone.svg': {
 			description: 'SVG image badge for safe public phone status.'
+		},
+		'/badge/phone/live.svg': {
+			description: 'No-cache SVG image badge for safe public phone status.'
 		},
 		'/badge/fitbit.svg': {
 			description: 'SVG image badge for safe public Fitbit stats.'
 		},
+		'/badge/fitbit/live.svg': {
+			description: 'No-cache SVG image badge for safe public Fitbit stats.'
+		},
 		'/badge/stats.svg': {
 			description: 'SVG image badge for API status.'
+		},
+		'/badge/stats/live.svg': {
+			description: 'No-cache SVG image badge for API status.'
 		}
 	};
 
