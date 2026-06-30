@@ -12,6 +12,7 @@ Current endpoints:
 - `POST /phone-state` ingests phone telemetry directly (bearer token required)
 - `GET /phone-state/stream` emits live SSE updates whenever `/phone-state` changes
 - `GET /spotify/currently-playing` proxies Spotify currently-playing with upstream polling cap (5 per 30 seconds)
+- `GET /github` returns GitHub contribution calendar data and recent commits
 - `GET /github/commits` returns recent GitHub commits from public events or configured repositories
 - `GET /github/contributions` returns GitHub contribution calendar data, defaulting to 1 year ending today
 - `GET /badge/github.svg` returns a 1-year GitHub contribution SVG badge with today in the rightmost column

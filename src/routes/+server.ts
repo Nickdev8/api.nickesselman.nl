@@ -25,6 +25,9 @@ export const GET: RequestHandler = async () => {
 		'/spotify/currently-playing': {
 			description: 'Get the currently playing track on Spotify.'
 		},
+		'/github': {
+			description: 'Get GitHub contribution calendar data and recent commits.'
+		},
 		'/github/commits': {
 			description: 'Get recent public or configured GitHub commits.'
 		},
