@@ -12,6 +12,11 @@ Current endpoints:
 - `POST /phone-state` ingests phone telemetry directly (bearer token required)
 - `GET /phone-state/stream` emits live SSE updates whenever `/phone-state` changes
 - `GET /spotify/currently-playing` proxies Spotify currently-playing with upstream polling cap (5 per 30 seconds)
+- `GET /github/commits` returns recent GitHub commits from public events or configured repositories
+- `GET /github/contributions` returns GitHub contribution calendar data, defaulting to 1 year ending today
+- `GET /badge/github.svg` returns a 1-year GitHub contribution SVG badge with today in the rightmost column
+- `GET /badge/github/2y.svg` returns a 2-year GitHub contribution SVG badge with today in the rightmost column
+- `GET /badge/github/latest.svg` returns an SVG badge for the latest GitHub commit
 
 Docker:
 
@@ -36,6 +41,11 @@ Environment:
 - `SPOTIFY_REFRESH_TOKEN` user refresh token with `user-read-currently-playing` / `user-read-playback-state` scopes
 - `SPOTIFY_ACCESS_TOKEN` (optional bootstrap token; endpoint can still serve cached data when refresh is unavailable)
 - `SPOTIFY_TOKEN_FILE` optional token storage path (default `./data/spotify/tokens.json`)
+- `GITHUB_OWNER` GitHub username for public event fallback and author filtering
+- `GITHUB_TOKEN` optional GitHub token for private/configured repository feeds
+- `GITHUB_FEED_REPOS` optional comma-separated `owner/repo` list to track directly
+- `GITHUB_USE_REPO_FEED` optional truthy flag to fetch recent repos from the authenticated account
+- `CONTRIBUTIONS_CACHE_FILE` optional persisted GitHub contribution cache path (default `./data/github-contributions-cache.json`)
 
 Tokens are bootstrapped from env only when `tokens.json` is missing. After that, refreshed tokens are persisted to disk and reused across restarts.
 

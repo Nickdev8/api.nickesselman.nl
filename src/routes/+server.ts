@@ -25,6 +25,12 @@ export const GET: RequestHandler = async () => {
 		'/spotify/currently-playing': {
 			description: 'Get the currently playing track on Spotify.'
 		},
+		'/github/commits': {
+			description: 'Get recent public or configured GitHub commits.'
+		},
+		'/github/contributions': {
+			description: 'Get GitHub contribution calendar data. Defaults to 1 year ending today.'
+		},
 		'/badge/spotify.svg': {
 			description: 'SVG image badge for the current Spotify status.'
 		},
@@ -48,6 +54,21 @@ export const GET: RequestHandler = async () => {
 		},
 		'/badge/stats/live.svg': {
 			description: 'No-cache SVG image badge for API status.'
+		},
+		'/badge/github.svg': {
+			description: 'SVG image badge for 1 year of GitHub contributions, ending today.'
+		},
+		'/badge/github/live.svg': {
+			description: 'No-cache SVG image badge for 1 year of GitHub contributions, ending today.'
+		},
+		'/badge/github/2y.svg': {
+			description: 'SVG image badge for 2 years of GitHub contributions, ending today.'
+		},
+		'/badge/github/2y/live.svg': {
+			description: 'No-cache SVG image badge for 2 years of GitHub contributions, ending today.'
+		},
+		'/badge/github/latest.svg': {
+			description: 'SVG image badge for the latest GitHub commit.'
 		}
 	};
 
