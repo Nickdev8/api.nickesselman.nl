@@ -26,8 +26,9 @@ const CONTRIBUTIONS_CACHE_FILE =
 const levelColors = ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'];
 const graphCache = new Map<string, ContributionCacheEntry>();
 const fallbackCache = new Map<string, ContributionCacheEntry>();
+const DEFAULT_GITHUB_OWNER = 'nickdev8';
 
-const getOwner = (): string => (process.env.GITHUB_OWNER ?? process.env.VITE_GITHUB_OWNER ?? '').trim();
+const getOwner = (): string => (process.env.GITHUB_OWNER ?? process.env.VITE_GITHUB_OWNER ?? DEFAULT_GITHUB_OWNER).trim();
 const getToken = (): string => (process.env.GITHUB_TOKEN ?? process.env.VITE_GITHUB_TOKEN ?? '').trim();
 
 const formatISO = (value: string): string | undefined => {

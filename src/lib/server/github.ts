@@ -14,6 +14,7 @@ type PushEvent = {
 	repo?: { name?: string };
 	actor?: { login?: string };
 	payload?: {
+		head?: string;
 		commits?: { sha?: string; message?: string; url?: string }[];
 	};
 };
@@ -30,7 +31,9 @@ type CommitApiItem = {
 	};
 };
 
-const GITHUB_OWNER = (process.env.GITHUB_OWNER ?? process.env.VITE_GITHUB_OWNER ?? '').trim();
+const DEFAULT_GITHUB_OWNER = 'nickdev8';
+
+const GITHUB_OWNER = (process.env.GITHUB_OWNER ?? process.env.VITE_GITHUB_OWNER ?? DEFAULT_GITHUB_OWNER).trim();
 const GITHUB_TOKEN = (process.env.GITHUB_TOKEN ?? process.env.VITE_GITHUB_TOKEN ?? '').trim();
 const GITHUB_FEED_REPOS = (process.env.GITHUB_FEED_REPOS ?? process.env.VITE_GITHUB_FEED_REPOS ?? '')
 	.split(',')
@@ -61,6 +64,33 @@ const apiCommitToHtml = (url: string | undefined): string =>
 
 const useRepoFeed = (): boolean => GITHUB_FEED_REPOS.length > 0 || GITHUB_USE_REPO_FEED;
 
+const normalizeCommitApiItem = (item: CommitApiItem, repo: string): GithubCommit => {
+	const commitData = item.commit ?? {};
+	return {
+		sha: item.sha ?? '',
+		commitUrl: item.html_url ?? '#',
+		repoName: repo,
+		commit: {
+			author: {
+				name: commitData.author?.name || item.author?.login || GITHUB_OWNER || 'unknown',
+				date: commitData.author?.date || commitData.committer?.date || item.committer?.date || new Date().toISOString()
+			},
+			message: commitData.message || 'Commit'
+		}
+	};
+};
+
+const fetchHeadCommit = async (repo: string, sha: string): Promise<GithubCommit | null> => {
+	const response = await fetch(`${API_BASE}/repos/${repo}/commits/${sha}`, { headers: buildHeaders() });
+	if (!response.ok) {
+		console.error('Failed to fetch GitHub head commit', repo, sha, response.status, await response.text());
+		return null;
+	}
+
+	const json: unknown = await response.json();
+	return normalizeCommitApiItem(json as CommitApiItem, repo);
+};
+
 const fetchPushEventCommits = async (limit: number, maxPages = 4): Promise<GithubCommit[]> => {
 	if (!GITHUB_OWNER) return [];
 
@@ -83,7 +113,8 @@ const fetchPushEventCommits = async (limit: number, maxPages = 4): Promise<Githu
 
 			const repoName = event.repo?.name || 'unknown-repo';
 			const authorName = event.actor?.login || GITHUB_OWNER || 'unknown';
-			for (const commit of event.payload?.commits ?? []) {
+			const payloadCommits = event.payload?.commits ?? [];
+			for (const commit of payloadCommits) {
 				commits.push({
 					sha: commit.sha ?? '',
 					repoName,
@@ -94,6 +125,12 @@ const fetchPushEventCommits = async (limit: number, maxPages = 4): Promise<Githu
 					}
 				});
 				if (commits.length >= limit) break;
+			}
+			if (commits.length >= limit) break;
+
+			if (!payloadCommits.length && event.payload?.head && repoName !== 'unknown-repo') {
+				const commit = await fetchHeadCommit(repoName, event.payload.head);
+				if (commit) commits.push(commit);
 			}
 			if (commits.length >= limit) break;
 		}
@@ -123,19 +160,7 @@ const fetchRepoCommits = async (repo: string, limit: number): Promise<GithubComm
 		const authorLogin = item.author?.login?.toLowerCase();
 		if (ownerLower && authorLogin && authorLogin !== ownerLower) continue;
 
-		const commitData = item.commit ?? {};
-		commits.push({
-			sha: item.sha ?? '',
-			commitUrl: item.html_url ?? '#',
-			repoName: repo,
-			commit: {
-				author: {
-					name: commitData.author?.name || item.author?.login || GITHUB_OWNER || 'unknown',
-					date: commitData.author?.date || commitData.committer?.date || item.committer?.date || new Date().toISOString()
-				},
-				message: commitData.message || 'Commit'
-			}
-		});
+		commits.push(normalizeCommitApiItem(item, repo));
 
 		if (commits.length >= limit) break;
 	}

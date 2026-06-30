@@ -42,7 +42,7 @@ Environment:
 - `SPOTIFY_REFRESH_TOKEN` user refresh token with `user-read-currently-playing` / `user-read-playback-state` scopes
 - `SPOTIFY_ACCESS_TOKEN` (optional bootstrap token; endpoint can still serve cached data when refresh is unavailable)
 - `SPOTIFY_TOKEN_FILE` optional token storage path (default `./data/spotify/tokens.json`)
-- `GITHUB_OWNER` GitHub username for public event fallback and author filtering
+- `GITHUB_OWNER` GitHub username for public event fallback and author filtering (defaults to `nickdev8`)
 - `GITHUB_TOKEN` optional GitHub token for private/configured repository feeds
 - `GITHUB_FEED_REPOS` optional comma-separated `owner/repo` list to track directly
 - `GITHUB_USE_REPO_FEED` optional truthy flag to fetch recent repos from the authenticated account
